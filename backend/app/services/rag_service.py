@@ -19,11 +19,18 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEndpointEmbeddings
 from langchain_chroma import Chroma
 
+from app.core.config import HF_TOKEN
+
 CHROMA_DIR = Path(__file__).resolve().parents[2] / "data" / "chromadb"
+# Embedded via Hugging Face's hosted Inference API, not a local
+# sentence-transformers model - keeps PyTorch (GBs) out of the deploy bundle.
+# Same model the data/chromadb index was built with, so stored vectors and
+# query vectors stay in the same space; changing it means rebuilding the index.
 EMBEDDING_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+EMBEDDING_PROVIDER = "hf-inference"
 
 # Semantic distance is unbounded but in this corpus observed roughly in the
 # 5-25 range (lower = more similar). Boosts are score REDUCTIONS applied
@@ -353,7 +360,11 @@ def _rank_boost(meta, citizen: CitizenContext, name_score: float = 0.0, synonym_
 
 class RagService:
     def __init__(self):
-        embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+        embeddings = HuggingFaceEndpointEmbeddings(
+            model=EMBEDDING_MODEL,
+            provider=EMBEDDING_PROVIDER,
+            huggingfacehub_api_token=HF_TOKEN,
+        )
         self.cards = Chroma(
             collection_name="discovery_cards",
             embedding_function=embeddings,
