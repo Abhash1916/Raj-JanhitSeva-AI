@@ -15,16 +15,6 @@ if not OPENROUTER_API_KEY:
         "OPENROUTER_API_KEY not set. Copy .env.example to .env and fill in your key."
     )
 
-# Scheme search embeds queries through Hugging Face's hosted Inference API
-# (see rag_service.py), so this is required just like OPENROUTER_API_KEY.
-HF_TOKEN = os.environ.get("HF_TOKEN")
-
-if not HF_TOKEN:
-    raise RuntimeError(
-        "HF_TOKEN not set. Create a free read token at "
-        "https://huggingface.co/settings/tokens and add it to .env."
-    )
-
 # Voice input (speech-to-text) - optional, unlike OPENROUTER_API_KEY above:
 # the app is fully usable via text without this, so a missing key doesn't
 # crash startup, only the /transcribe endpoint itself.

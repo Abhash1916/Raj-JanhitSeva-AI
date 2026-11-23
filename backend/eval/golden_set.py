@@ -29,7 +29,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 DATA_DIR = ROOT / "data"
-CHROMA_DIR = DATA_DIR / "chromadb"
+INDEX_DIR = DATA_DIR / "vector_index"
 EMBEDDING_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 
 HTML_TAG_RE = re.compile(r"<[^>]+>")
@@ -113,23 +113,12 @@ def check_known_eligibility_cases(eligibility_by_slug):
 # ---------------------------------------------------------------------------
 
 def _load_chroma_collections():
-    from dotenv import load_dotenv
-    from langchain_huggingface import HuggingFaceEndpointEmbeddings
-    from langchain_chroma import Chroma
+    # Name kept for history; now the local vector index (app/services/vector_store.py).
+    sys.path.insert(0, str(ROOT))
+    from app.services.vector_store import LocalEmbedder, VectorCollection
 
-    load_dotenv(Path(__file__).resolve().parents[1] / ".env")  # HF_TOKEN
-    embeddings = HuggingFaceEndpointEmbeddings(model=EMBEDDING_MODEL, provider="hf-inference")
-    cards = Chroma(
-        collection_name="discovery_cards",
-        embedding_function=embeddings,
-        persist_directory=str(CHROMA_DIR),
-    )
-    chunks = Chroma(
-        collection_name="field_chunks",
-        embedding_function=embeddings,
-        persist_directory=str(CHROMA_DIR),
-    )
-    return cards, chunks
+    embedder = LocalEmbedder()
+    return VectorCollection("discovery_cards", embedder), VectorCollection("field_chunks", embedder)
 
 
 def check_no_duplicate_chunks(chunks):
@@ -167,8 +156,8 @@ def check_no_junk_chunks(cards, chunks):
 
 
 def check_corpus_size(cards, chunks):
-    n_cards = cards._collection.count()
-    n_chunks = chunks._collection.count()
+    n_cards = cards.count()
+    n_chunks = chunks.count()
     check("discovery_cards collection is non-trivially sized", n_cards > 100, f"count={n_cards}")
     check("field_chunks collection is non-trivially sized", n_chunks > 1000, f"count={n_chunks}")
 
@@ -592,7 +581,7 @@ def main():
     print("\n-- Section 2: known eligibility/occupation-tagging cases --")
     check_known_eligibility_cases(eligibility_by_slug)
 
-    print("\n-- Section 3: knowledge-base checks (Chroma) --")
+    print("\n-- Section 3: knowledge-base checks (vector index) --")
     try:
         cards, chunks = _load_chroma_collections()
     except Exception as e:

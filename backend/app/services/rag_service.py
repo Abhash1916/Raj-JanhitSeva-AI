@@ -14,48 +14,16 @@ single, self-contained query. It's deliberately testable standalone via
 scripts/tools/query_retrieval.py, independent of any chat/session logic.
 """
 
-import os
 import re
-import shutil
-import tempfile
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Optional
 
-from langchain_huggingface import HuggingFaceEndpointEmbeddings
-from langchain_chroma import Chroma
+from app.services.vector_store import LocalEmbedder, VectorCollection
 
-from app.core.config import HF_TOKEN
-
-CHROMA_DIR = Path(__file__).resolve().parents[2] / "data" / "chromadb"
-
-
-def _writable_chroma_dir() -> Path:
-    """Chroma opens its SQLite file read-write even for queries only, so on a
-    read-only deploy filesystem (Vercel/AWS Lambda) it fails with "attempt to
-    write a readonly database". There, copy the index once per cold start to
-    the temp dir (the only writable place) and open that copy instead."""
-    if not CHROMA_DIR.is_dir():
-        raise RuntimeError(
-            f"Chroma index not found at {CHROMA_DIR} - build it with "
-            "scripts/pipeline/build_knowledge_base.py"
-        )
-    if os.access(CHROMA_DIR, os.W_OK):
-        return CHROMA_DIR
-    target = Path(tempfile.gettempdir()) / "chromadb"
-    if not target.exists():
-        staging = target.with_name("chromadb.partial")
-        shutil.rmtree(staging, ignore_errors=True)
-        shutil.copytree(CHROMA_DIR, staging)
-        staging.rename(target)  # atomic: a crash mid-copy never leaves a half index at target
-    return target
-
-# Embedded via Hugging Face's hosted Inference API, not a local
-# sentence-transformers model - keeps PyTorch (GBs) out of the deploy bundle.
-# Same model the data/chromadb index was built with, so stored vectors and
-# query vectors stay in the same space; changing it means rebuilding the index.
+# Queries are embedded in-process (8-bit ONNX export of the same model the
+# index was built with) and searched exactly with NumPy - see vector_store.py
+# for why this replaced Chroma + the hosted Hugging Face API.
 EMBEDDING_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
-EMBEDDING_PROVIDER = "hf-inference"
 
 # Semantic distance is unbounded but in this corpus observed roughly in the
 # 5-25 range (lower = more similar). Boosts are score REDUCTIONS applied
@@ -385,22 +353,9 @@ def _rank_boost(meta, citizen: CitizenContext, name_score: float = 0.0, synonym_
 
 class RagService:
     def __init__(self):
-        embeddings = HuggingFaceEndpointEmbeddings(
-            model=EMBEDDING_MODEL,
-            provider=EMBEDDING_PROVIDER,
-            huggingfacehub_api_token=HF_TOKEN,
-        )
-        chroma_dir = str(_writable_chroma_dir())
-        self.cards = Chroma(
-            collection_name="discovery_cards",
-            embedding_function=embeddings,
-            persist_directory=chroma_dir,
-        )
-        self.chunks = Chroma(
-            collection_name="field_chunks",
-            embedding_function=embeddings,
-            persist_directory=chroma_dir,
-        )
+        embedder = LocalEmbedder()
+        self.cards = VectorCollection("discovery_cards", embedder)
+        self.chunks = VectorCollection("field_chunks", embedder)
         # one representative card's metadata per scheme_id, for the hybrid
         # name-match pass in shortlist() - built once, not per-query, since
         # it's a fixed, small (157-scheme) list.

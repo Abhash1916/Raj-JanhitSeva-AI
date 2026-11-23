@@ -13,30 +13,15 @@ from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")  # Windows console defaults to cp1252, breaks on Devanagari
 
-from dotenv import load_dotenv
-from langchain_huggingface import HuggingFaceEndpointEmbeddings
-from langchain_chroma import Chroma
-
-CHROMA_DIR = Path(__file__).resolve().parents[2] / "data" / "chromadb"
-EMBEDDING_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # backend/, for app.*
+from app.services.vector_store import LocalEmbedder, VectorCollection
 
 TOP_K = 8
 
 
 def load_collections():
-    load_dotenv(Path(__file__).resolve().parents[2] / ".env")  # HF_TOKEN
-    embeddings = HuggingFaceEndpointEmbeddings(model=EMBEDDING_MODEL, provider="hf-inference")
-    cards = Chroma(
-        collection_name="discovery_cards",
-        embedding_function=embeddings,
-        persist_directory=str(CHROMA_DIR),
-    )
-    chunks = Chroma(
-        collection_name="field_chunks",
-        embedding_function=embeddings,
-        persist_directory=str(CHROMA_DIR),
-    )
-    return cards, chunks
+    embedder = LocalEmbedder()
+    return VectorCollection("discovery_cards", embedder), VectorCollection("field_chunks", embedder)
 
 
 def _eligibility_summary(meta):

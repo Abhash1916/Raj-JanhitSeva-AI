@@ -1,12 +1,13 @@
-"""Build the two Chroma collections described in PLAN.md SS2/SS3:
+"""Build the two vector collections described in PLAN.md SS2/SS3:
 discovery cards (cheap shortlist scan) and field chunks (detail retrieval).
 
 Input:
   data/raw/{latest scrape date}/{slug}.json    (scrape_myscheme.py)
   data/processed/eligibility_structured.json    (extract_eligibility.py)
 Output:
-  data/chromadb/  - two persisted Chroma collections:
-    "discovery_cards" and "field_chunks"
+  data/vector_index/{discovery_cards,field_chunks}.{json,npy}
+    (read by app/services/vector_store.py; embedded locally with the ONNX
+    model in data/embedding_model/ - no API key or GPU needed)
 
 Chunking unit = one scheme's one field (SS2), not a fixed-size window - the
 myScheme payload already arrives split into fields (eligibility, benefits,
@@ -25,18 +26,16 @@ consistent with the fail-open filter design in PLAN.md SS3.
 
 import json
 import re
-import shutil
+import sys
 from pathlib import Path
 
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from dotenv import load_dotenv
-from langchain_huggingface import HuggingFaceEndpointEmbeddings
-from langchain_chroma import Chroma
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # backend/, for app.*
+from app.services.vector_store import INDEX_DIR, LocalEmbedder, write_collection
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
-CHROMA_DIR = DATA_DIR / "chromadb"
-EMBEDDING_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 
 LONG_FIELD_CHARS = 1400  # secondary-split threshold (SS2: ~300-400 tokens)
 SPLIT_OVERLAP_CHARS = 200  # ~15%
@@ -239,34 +238,16 @@ def main():
     print(f"Discovery cards: {len(discovery_docs)}")
     print(f"Field chunks: {len(field_docs)}")
 
-    print(f"Using embedding model {EMBEDDING_MODEL} via Hugging Face Inference API...")
-    load_dotenv(Path(__file__).resolve().parents[2] / ".env")  # HF_TOKEN
-    embeddings = HuggingFaceEndpointEmbeddings(model=EMBEDDING_MODEL, provider="hf-inference")
-
-    if CHROMA_DIR.exists():
-        # rebuild from scratch each run - from_documents() ADDS to an existing
-        # collection of the same name, so re-running without this would
-        # duplicate every chunk on top of the previous run's.
-        shutil.rmtree(CHROMA_DIR)
-    CHROMA_DIR.mkdir(parents=True, exist_ok=True)
+    print("Loading local embedding model (data/embedding_model)...")
+    embedder = LocalEmbedder()
 
     print("Embedding + storing discovery cards...")
-    Chroma.from_documents(
-        discovery_docs,
-        embedding=embeddings,
-        collection_name="discovery_cards",
-        persist_directory=str(CHROMA_DIR),
-    )
+    write_collection("discovery_cards", discovery_docs, embedder)
 
     print("Embedding + storing field chunks...")
-    Chroma.from_documents(
-        field_docs,
-        embedding=embeddings,
-        collection_name="field_chunks",
-        persist_directory=str(CHROMA_DIR),
-    )
+    write_collection("field_chunks", field_docs, embedder)
 
-    print(f"Done. Knowledge base persisted at {CHROMA_DIR}")
+    print(f"Done. Knowledge base written to {INDEX_DIR}")
 
 
 if __name__ == "__main__":

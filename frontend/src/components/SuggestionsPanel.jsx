@@ -50,7 +50,7 @@ const PROMPTS_BY_TAB = {
   ],
 };
 
-export default function SuggestionsPanel({ onSend }) {
+export default function SuggestionsPanel({ onSend, disabled = false }) {
   const [activeTab, setActiveTab] = useState("Suggested");
   const prompts = PROMPTS_BY_TAB[activeTab];
 
@@ -108,6 +108,7 @@ export default function SuggestionsPanel({ onSend }) {
           <button
             key={prompt.text}
             onClick={() => onSend(prompt.text)}
+            disabled={disabled}
             style={{
               display: "flex",
               alignItems: "center",
@@ -117,7 +118,8 @@ export default function SuggestionsPanel({ onSend }) {
               border: "none",
               borderBottom: i < prompts.length - 1 ? "1px solid var(--color-tab-border)" : "none",
               background: "transparent",
-              cursor: "pointer",
+              cursor: disabled ? "default" : "pointer",
+              opacity: disabled ? 0.5 : 1,
               textAlign: "left",
               width: "100%",
             }}

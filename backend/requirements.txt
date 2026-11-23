@@ -1,10 +1,11 @@
 requests
 langgraph
+langchain-core
 langchain-text-splitters
-langchain-chroma
-langchain-huggingface
-chromadb
 langchain-openai
+numpy
+onnxruntime
+tokenizers
 python-dotenv
 rapidfuzz
 fastapi

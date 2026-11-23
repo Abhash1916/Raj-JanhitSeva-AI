@@ -17,14 +17,27 @@ export default function ChatWindow() {
     preferredLang,
     setPreferredLang,
   } = useChatStore();
-  const bottomRef = useRef(null);
+  const listRef = useRef(null);
   const [ideasOn, setIdeasOn] = useState(true);
 
   const hasConversationStarted = messages.some((m) => m.role === "user");
 
+  // Scroll ONLY the message list. scrollIntoView() also scrolls every
+  // scrollable ancestor - including the page itself - which shoved the header
+  // off-screen on every new message whenever the page was taller than the
+  // viewport (e.g. with the Ideas panel open below the chat).
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const list = listRef.current;
+    if (list) list.scrollTo({ top: list.scrollHeight, behavior: "smooth" });
   }, [messages, isLoading]);
+
+  // Suggestions sit below the chat card, so after tapping one the reply would
+  // land off-screen above - bring the card back into view.
+  // The card is the first thing on the page, so the top of the page shows it.
+  const sendSuggestion = (text) => {
+    sendMessage(text);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
@@ -48,7 +61,7 @@ export default function ChatWindow() {
         {!hasConversationStarted && <EmptyState />}
 
         {hasConversationStarted && (
-          <div style={{ flex: 1, overflowY: "auto", padding: 14 }}>
+          <div ref={listRef} style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 14 }}>
             {messages.map((m, i) => (
               <MessageBubble key={i} role={m.role} text={m.text} />
             ))}
@@ -68,7 +81,6 @@ export default function ChatWindow() {
                 </div>
               </div>
             )}
-            <div ref={bottomRef} />
           </div>
         )}
 
@@ -82,7 +94,7 @@ export default function ChatWindow() {
         />
       </div>
 
-      {ideasOn && <SuggestionsPanel onSend={sendMessage} />}
+      {ideasOn && <SuggestionsPanel onSend={sendSuggestion} disabled={isLoading} />}
 
       {!hasConversationStarted && (
         <p

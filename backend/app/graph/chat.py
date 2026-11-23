@@ -550,6 +550,10 @@ def get_llm():
             api_key=OPENROUTER_API_KEY,
             base_url="https://openrouter.ai/api/v1",
             temperature=0,
+            # Without a cap OpenRouter reserves the model's full output limit
+            # (64k tokens) per call, and rejects the call with 402 once the key's
+            # remaining credit is below that - even though replies are short.
+            max_tokens=2048,
         )
     return _llm
 
@@ -570,6 +574,10 @@ def get_reply_llm():
             api_key=OPENROUTER_API_KEY,
             base_url="https://openrouter.ai/api/v1",
             temperature=0.6,
+            # Without a cap OpenRouter reserves the model's full output limit
+            # (64k tokens) per call, and rejects the call with 402 once the key's
+            # remaining credit is below that - even though replies are short.
+            max_tokens=2048,
         )
     return _reply_llm
 
