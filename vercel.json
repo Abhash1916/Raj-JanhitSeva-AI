@@ -18,6 +18,18 @@
       }
     },
     {
+      "source": "/(chat|transcribe|health)",
+      "destination": {
+        "service": "backend"
+      }
+    },
+    {
+      "source": "/app/live/(.*)",
+      "destination": {
+        "service": "backend"
+      }
+    },
+    {
       "source": "/(.*)",
       "destination": {
         "service": "frontend"
