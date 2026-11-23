@@ -1,0 +1,8 @@
+# Not needed at runtime - kept out of the Vercel upload so the backend
+# function stays under Vercel's 500 MB bundle limit.
+backend/data/raw/
+backend/eval/
+backend/.backups/
+backend/scripts/
+docs/
+gov-staff/
