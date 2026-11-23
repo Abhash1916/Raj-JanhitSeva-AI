@@ -113,10 +113,12 @@ def check_known_eligibility_cases(eligibility_by_slug):
 # ---------------------------------------------------------------------------
 
 def _load_chroma_collections():
-    from langchain_huggingface import HuggingFaceEmbeddings
+    from dotenv import load_dotenv
+    from langchain_huggingface import HuggingFaceEndpointEmbeddings
     from langchain_chroma import Chroma
 
-    embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+    load_dotenv(Path(__file__).resolve().parents[1] / ".env")  # HF_TOKEN
+    embeddings = HuggingFaceEndpointEmbeddings(model=EMBEDDING_MODEL, provider="hf-inference")
     cards = Chroma(
         collection_name="discovery_cards",
         embedding_function=embeddings,

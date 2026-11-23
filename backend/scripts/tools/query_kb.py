@@ -13,7 +13,8 @@ from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")  # Windows console defaults to cp1252, breaks on Devanagari
 
-from langchain_huggingface import HuggingFaceEmbeddings
+from dotenv import load_dotenv
+from langchain_huggingface import HuggingFaceEndpointEmbeddings
 from langchain_chroma import Chroma
 
 CHROMA_DIR = Path(__file__).resolve().parents[2] / "data" / "chromadb"
@@ -23,7 +24,8 @@ TOP_K = 8
 
 
 def load_collections():
-    embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+    load_dotenv(Path(__file__).resolve().parents[2] / ".env")  # HF_TOKEN
+    embeddings = HuggingFaceEndpointEmbeddings(model=EMBEDDING_MODEL, provider="hf-inference")
     cards = Chroma(
         collection_name="discovery_cards",
         embedding_function=embeddings,

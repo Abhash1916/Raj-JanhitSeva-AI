@@ -30,7 +30,8 @@ from pathlib import Path
 
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_huggingface import HuggingFaceEmbeddings
+from dotenv import load_dotenv
+from langchain_huggingface import HuggingFaceEndpointEmbeddings
 from langchain_chroma import Chroma
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
@@ -238,8 +239,9 @@ def main():
     print(f"Discovery cards: {len(discovery_docs)}")
     print(f"Field chunks: {len(field_docs)}")
 
-    print(f"Loading embedding model {EMBEDDING_MODEL} (local, one-time download)...")
-    embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+    print(f"Using embedding model {EMBEDDING_MODEL} via Hugging Face Inference API...")
+    load_dotenv(Path(__file__).resolve().parents[2] / ".env")  # HF_TOKEN
+    embeddings = HuggingFaceEndpointEmbeddings(model=EMBEDDING_MODEL, provider="hf-inference")
 
     if CHROMA_DIR.exists():
         # rebuild from scratch each run - from_documents() ADDS to an existing
